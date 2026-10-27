@@ -1,0 +1,346 @@
+{
+  "name": "mr-review",
+  "displayName": "MR Review",
+  "description": "Relire une MR GitLab dans le diff natif de VS Code : navigation Cmd+clic sur le vrai fichier et commentaires postés sur la MR.",
+  "publisher": "local",
+  "version": "0.0.9",
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "activationEvents": [
+    "onUri"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mrReview.addToReview",
+        "title": "Ajouter à la review"
+      },
+      {
+        "command": "mrReview.postComment",
+        "title": "Publier maintenant"
+      },
+      {
+        "command": "mrReview.resolve",
+        "title": "Résoudre",
+        "icon": "$(check)"
+      },
+      {
+        "command": "mrReview.unresolve",
+        "title": "Rouvrir",
+        "icon": "$(issue-reopened)"
+      },
+      {
+        "command": "mrReview.editComment",
+        "title": "Modifier",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "mrReview.deleteComment",
+        "title": "Supprimer",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "mrReview.saveComment",
+        "title": "Enregistrer"
+      },
+      {
+        "command": "mrReview.cancelEditComment",
+        "title": "Annuler"
+      },
+      {
+        "command": "mrReview.suggestChange",
+        "title": "MR Review : Suggérer une modification"
+      },
+      {
+        "command": "mrReview.addSuggestionToReview",
+        "title": "Ajouter à la review"
+      },
+      {
+        "command": "mrReview.publishSuggestion",
+        "title": "Publier maintenant"
+      },
+      {
+        "command": "mrReview.cancelSuggestion",
+        "title": "Annuler"
+      },
+      {
+        "command": "mrReview.submitReview",
+        "title": "MR Review : Soumettre la review",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "mrReview.openFile",
+        "title": "Ouvrir le diff"
+      },
+      {
+        "command": "mrReview.openDiscussions",
+        "title": "Ouvrir les discussions"
+      },
+      {
+        "command": "mrReview.nextFile",
+        "title": "MR Review : Fichier suivant",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "mrReview.previousFile",
+        "title": "MR Review : Fichier précédent",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "mrReview.openInBrowser",
+        "title": "MR Review : Ouvrir la MR dans GitLab",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "mrReview.refresh",
+        "title": "MR Review : Rafraîchir la MR et ses commentaires",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mrReview.signOut",
+        "title": "MR Review : Se déconnecter de GitLab"
+      },
+      {
+        "command": "mrReview.toggleCheck",
+        "title": "Marquer le point du triage vérifié"
+      }
+    ],
+    "configuration": {
+      "title": "MR Review",
+      "properties": {
+        "mrReview.oauthApplications": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "markdownDescription": "Application OAuth par instance GitLab, pour se connecter en SSO dans le navigateur : `{ \"https://gitlab.com\": \"<Application ID>\" }`. L'application se crée dans GitLab > Préférences > Applications, avec l'URI de redirection `vscode://local.mr-review/authentication`, la case « Confidential » décochée et le scope `api`. Sans application déclarée, un PAT est demandé."
+        },
+        "mrReview.markViewedOnNext": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "« Fichier suivant » coche comme relu le fichier qu'on quitte."
+        },
+        "mrReview.triageDirectory": {
+          "type": "string",
+          "default": "~/.claude/triage",
+          "markdownDescription": "Dossier des triages du skill `triage-mr` (`<branche>.json`, `/` remplacés par `-`). La vue des fichiers suit leur ordre de lecture. Recharger la fenêtre après un changement."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mrReview",
+          "title": "MR Review",
+          "icon": "media/mr-review.svg"
+        }
+      ]
+    },
+    "views": {
+      "mrReview": [
+        {
+          "id": "mrReview.files",
+          "name": "Fichiers de la MR"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mrReview.nextFile",
+        "key": "ctrl+alt+right",
+        "when": "mrReview.hasSession"
+      },
+      {
+        "command": "mrReview.previousFile",
+        "key": "ctrl+alt+left",
+        "when": "mrReview.hasSession"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "mrReview.previousFile",
+          "group": "navigation@1",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.nextFile",
+          "group": "navigation@2",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.submitReview",
+          "group": "navigation@3",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.openInBrowser",
+          "group": "navigation@4",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.refresh",
+          "group": "navigation@5",
+          "when": "view == mrReview.files"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "mrReview.previousFile",
+          "group": "navigation@-2",
+          "when": "mrReview.hasSession && isInDiffEditor"
+        },
+        {
+          "command": "mrReview.nextFile",
+          "group": "navigation@-1",
+          "when": "mrReview.hasSession && isInDiffEditor"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mrReview.suggestChange",
+          "group": "mrReview",
+          "when": "mrReview.hasSession && resourceScheme == file"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "mrReview.saveComment",
+          "group": "inline@1",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.cancelEditComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.addSuggestionToReview",
+          "group": "inline@1",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        },
+        {
+          "command": "mrReview.publishSuggestion",
+          "group": "inline@2",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        },
+        {
+          "command": "mrReview.cancelSuggestion",
+          "group": "inline@3",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "mrReview.addToReview",
+          "group": "inline@1",
+          "when": "commentController == mr-review"
+        },
+        {
+          "command": "mrReview.postComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "mrReview.resolve",
+          "group": "inline",
+          "when": "commentController == mr-review && commentThread == unresolved"
+        },
+        {
+          "command": "mrReview.unresolve",
+          "group": "inline",
+          "when": "commentController == mr-review && commentThread == resolved"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mrReview.addToReview",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.postComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.resolve",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.unresolve",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.editComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.saveComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.addSuggestionToReview",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.publishSuggestion",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.cancelSuggestion",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openFile",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openDiscussions",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.toggleCheck",
+          "when": "false"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "mrReview.editComment",
+          "group": "inline@1",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.deleteComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.90.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test test/",
+    "package": "scripts/package.sh"
+  }
+}
