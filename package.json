@@ -1,0 +1,754 @@
+{
+  "name": "mr-review",
+  "displayName": "MR Review",
+  "description": "%description%",
+  "publisher": "gwen1230",
+  "version": "0.0.0",
+  "license": "MIT",
+  "author": {
+    "name": "Gwenael Le Neindre"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gwen1230/gitlab-mr-review-vscode.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gwen1230/gitlab-mr-review-vscode/issues"
+  },
+  "homepage": "https://github.com/gwen1230/gitlab-mr-review-vscode#readme",
+  "icon": "media/icon.png",
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "keywords": [
+    "gitlab",
+    "merge request",
+    "code review",
+    "review",
+    "diff"
+  ],
+  "l10n": "./l10n",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "main": "./extension.js",
+  "extensionDependencies": [
+    "vscode.git"
+  ],
+  "activationEvents": [
+    "onUri"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mrReview.addToReview",
+        "title": "%command.addToReview%"
+      },
+      {
+        "command": "mrReview.postComment",
+        "title": "%command.postComment%"
+      },
+      {
+        "command": "mrReview.resolve",
+        "title": "%command.resolve%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "mrReview.unresolve",
+        "title": "%command.unresolve%",
+        "icon": "$(issue-reopened)"
+      },
+      {
+        "command": "mrReview.editComment",
+        "title": "%command.editComment%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "mrReview.deleteComment",
+        "title": "%command.deleteComment%",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "mrReview.saveComment",
+        "title": "%command.saveComment%"
+      },
+      {
+        "command": "mrReview.cancelEditComment",
+        "title": "%command.cancelEditComment%"
+      },
+      {
+        "command": "mrReview.suggestChange",
+        "title": "%command.suggestChange%",
+        "category": "MR Review"
+      },
+      {
+        "command": "mrReview.addSuggestionToReview",
+        "title": "%command.addSuggestionToReview%"
+      },
+      {
+        "command": "mrReview.publishSuggestion",
+        "title": "%command.publishSuggestion%"
+      },
+      {
+        "command": "mrReview.cancelSuggestion",
+        "title": "%command.cancelSuggestion%"
+      },
+      {
+        "command": "mrReview.submitReview",
+        "title": "%command.submitReview%",
+        "category": "MR Review",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "mrReview.openFile",
+        "title": "%command.openFile%"
+      },
+      {
+        "command": "mrReview.openDiscussions",
+        "title": "%command.openDiscussions%"
+      },
+      {
+        "command": "mrReview.openDescription",
+        "title": "%command.openDescription%"
+      },
+      {
+        "command": "mrReview.nextFile",
+        "title": "%command.nextFile%",
+        "category": "MR Review",
+        "icon": "$(arrow-right)"
+      },
+      {
+        "command": "mrReview.previousFile",
+        "title": "%command.previousFile%",
+        "category": "MR Review",
+        "icon": "$(arrow-left)"
+      },
+      {
+        "command": "mrReview.openInBrowser",
+        "title": "%command.openInBrowser%",
+        "category": "MR Review",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "mrReview.refresh",
+        "title": "%command.refresh%",
+        "category": "MR Review",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mrReview.signIn",
+        "title": "%command.signIn%",
+        "category": "MR Review"
+      },
+      {
+        "command": "mrReview.signOut",
+        "title": "%command.signOut%",
+        "category": "MR Review"
+      },
+      {
+        "command": "mrReview.toggleCheck",
+        "title": "%command.toggleCheck%"
+      },
+      {
+        "command": "mrReview.openFileSinceReview",
+        "title": "%command.openFileSinceReview%"
+      },
+      {
+        "command": "mrReview.openFileSinceReviewFromView",
+        "title": "%command.openFileSinceReviewFromView%",
+        "icon": "$(history)"
+      },
+      {
+        "command": "mrReview.openFileFromView",
+        "title": "%command.openFileFromView%",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "mrReview.commentCheck",
+        "title": "%command.commentCheck%"
+      },
+      {
+        "command": "mrReview.commentCheckFromView",
+        "title": "%command.commentCheckFromView%",
+        "icon": "$(comment)"
+      },
+      {
+        "command": "mrReview.nextThread",
+        "title": "%command.nextThread%",
+        "category": "MR Review",
+        "icon": "$(arrow-down)"
+      },
+      {
+        "command": "mrReview.previousThread",
+        "title": "%command.previousThread%",
+        "category": "MR Review",
+        "icon": "$(arrow-up)"
+      },
+      {
+        "command": "mrReview.filterFiles",
+        "title": "%command.filterFiles%",
+        "category": "MR Review",
+        "icon": "$(search)"
+      },
+      {
+        "command": "mrReview.clearFilter",
+        "title": "%command.clearFilter%",
+        "category": "MR Review",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "mrReview.showUnviewedOnly",
+        "title": "%command.showUnviewedOnly%",
+        "category": "MR Review",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "mrReview.showAllFiles",
+        "title": "%command.showAllFiles%",
+        "category": "MR Review",
+        "icon": "$(filter-filled)"
+      },
+      {
+        "command": "mrReview.openDownstreamPipeline",
+        "title": "%command.openDownstreamPipeline%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "mrReview.updateWorktree",
+        "title": "%command.updateWorktree%",
+        "category": "MR Review",
+        "icon": "$(repo-pull)"
+      },
+      {
+        "command": "mrReview.openDiscussion",
+        "title": "%command.openDiscussion%"
+      },
+      {
+        "command": "mrReview.runTriage",
+        "title": "%command.runTriage%",
+        "category": "MR Review",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "mrReview.cancelTriage",
+        "title": "%command.cancelTriage%",
+        "category": "MR Review",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "mrReview.showTriageOutput",
+        "title": "%command.showTriageOutput%",
+        "category": "MR Review",
+        "icon": "$(output)"
+      },
+      {
+        "command": "mrReview.refreshMergeRequests",
+        "title": "%command.refreshMergeRequests%",
+        "category": "MR Review",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "mrReview.filterMergeRequests",
+        "title": "%command.filterMergeRequests%",
+        "category": "MR Review",
+        "icon": "$(search)"
+      },
+      {
+        "command": "mrReview.clearMergeRequestFilter",
+        "title": "%command.clearMergeRequestFilter%",
+        "category": "MR Review",
+        "icon": "$(clear-all)"
+      },
+      {
+        "command": "mrReview.hideDraftMergeRequests",
+        "title": "%command.hideDraftMergeRequests%",
+        "category": "MR Review",
+        "icon": "$(eye-closed)"
+      },
+      {
+        "command": "mrReview.showDraftMergeRequests",
+        "title": "%command.showDraftMergeRequests%",
+        "category": "MR Review",
+        "icon": "$(eye)"
+      },
+      {
+        "command": "mrReview.triageMergeRequest",
+        "title": "%command.triageMergeRequest%",
+        "icon": "$(play)"
+      },
+      {
+        "command": "mrReview.cancelMergeRequestTriage",
+        "title": "%command.cancelMergeRequestTriage%",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "mrReview.openMergeRequestInGitLab",
+        "title": "%command.openMergeRequestInGitLab%",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "mrReview.reviewMergeRequest",
+        "title": "%command.reviewMergeRequest%",
+        "icon": "$(eye)"
+      }
+    ],
+    "configuration": {
+      "title": "MR Review",
+      "properties": {
+        "mrReview.oauthApplications": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "markdownDescription": "%config.oauthApplications%"
+        },
+        "mrReview.markViewedOnNext": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.markViewedOnNext%"
+        },
+        "mrReview.triageDirectory": {
+          "type": "string",
+          "default": "~/.mr-review/triage",
+          "markdownDescription": "%config.triageDirectory%"
+        },
+        "mrReview.showAllChecksInEditor": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.showAllChecksInEditor%"
+        },
+        "mrReview.triageCommand": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.triageCommand%"
+        },
+        "mrReview.reviewWorktree": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.reviewWorktree%"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mrReview",
+          "title": "MR Review",
+          "icon": "media/mr-review.svg"
+        }
+      ]
+    },
+    "views": {
+      "mrReview": [
+        {
+          "id": "mrReview.filters",
+          "name": "%view.filters%",
+          "type": "webview",
+          "initialSize": 1
+        },
+        {
+          "id": "mrReview.files",
+          "name": "%view.files%",
+          "initialSize": 12
+        },
+        {
+          "id": "mrReview.pipeline",
+          "name": "%view.pipeline%",
+          "initialSize": 4
+        },
+        {
+          "id": "mrReview.mergeRequests",
+          "name": "%view.mergeRequests%",
+          "initialSize": 8
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "mrReview.nextFile",
+        "key": "ctrl+alt+right",
+        "when": "mrReview.hasSession"
+      },
+      {
+        "command": "mrReview.previousFile",
+        "key": "ctrl+alt+left",
+        "when": "mrReview.hasSession"
+      },
+      {
+        "command": "mrReview.nextThread",
+        "key": "ctrl+alt+down",
+        "when": "mrReview.hasSession"
+      },
+      {
+        "command": "mrReview.previousThread",
+        "key": "ctrl+alt+up",
+        "when": "mrReview.hasSession"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "mrReview.refresh",
+          "group": "navigation",
+          "when": "view == mrReview.pipeline"
+        },
+        {
+          "command": "mrReview.clearFilter",
+          "group": "navigation@0",
+          "when": "view == mrReview.files && mrReview.hasFilter"
+        },
+        {
+          "command": "mrReview.previousFile",
+          "group": "navigation@1",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.nextFile",
+          "group": "navigation@2",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.submitReview",
+          "group": "navigation@3",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.openInBrowser",
+          "group": "navigation@4",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.refresh",
+          "group": "navigation@5",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.previousThread",
+          "group": "threads@1",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.nextThread",
+          "group": "threads@2",
+          "when": "view == mrReview.files"
+        },
+        {
+          "command": "mrReview.updateWorktree",
+          "group": "navigation@0",
+          "when": "view == mrReview.files && mrReview.hasStaleWorktree"
+        },
+        {
+          "command": "mrReview.runTriage",
+          "group": "triage@1",
+          "when": "view == mrReview.files && mrReview.hasTriageCommand && !mrReview.triageRunning"
+        },
+        {
+          "command": "mrReview.showTriageOutput",
+          "group": "triage@2",
+          "when": "view == mrReview.files && mrReview.hasTriageCommand"
+        },
+        {
+          "command": "mrReview.clearMergeRequestFilter",
+          "group": "navigation@0",
+          "when": "view == mrReview.mergeRequests && mrReview.hasMergeRequestFilter"
+        },
+        {
+          "command": "mrReview.filterMergeRequests",
+          "group": "navigation@1",
+          "when": "view == mrReview.mergeRequests"
+        },
+        {
+          "command": "mrReview.hideDraftMergeRequests",
+          "group": "navigation@2",
+          "when": "view == mrReview.mergeRequests && !mrReview.draftsHidden"
+        },
+        {
+          "command": "mrReview.showDraftMergeRequests",
+          "group": "navigation@2",
+          "when": "view == mrReview.mergeRequests && mrReview.draftsHidden"
+        },
+        {
+          "command": "mrReview.refreshMergeRequests",
+          "group": "navigation@3",
+          "when": "view == mrReview.mergeRequests"
+        },
+        {
+          "command": "mrReview.showTriageOutput",
+          "group": "triage@1",
+          "when": "view == mrReview.mergeRequests && mrReview.hasTriageCommand"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "mrReview.previousFile",
+          "group": "navigation@-2",
+          "when": "mrReview.hasSession && isInDiffEditor"
+        },
+        {
+          "command": "mrReview.nextFile",
+          "group": "navigation@-1",
+          "when": "mrReview.hasSession && isInDiffEditor"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "mrReview.suggestChange",
+          "group": "mrReview",
+          "when": "mrReview.hasSession && resourceScheme == file"
+        }
+      ],
+      "comments/comment/context": [
+        {
+          "command": "mrReview.saveComment",
+          "group": "inline@1",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.cancelEditComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.addSuggestionToReview",
+          "group": "inline@1",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        },
+        {
+          "command": "mrReview.publishSuggestion",
+          "group": "inline@2",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        },
+        {
+          "command": "mrReview.cancelSuggestion",
+          "group": "inline@3",
+          "when": "commentController == mr-review && comment == suggestionEditor"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "mrReview.addToReview",
+          "group": "inline@1",
+          "when": "commentController == mr-review"
+        },
+        {
+          "command": "mrReview.postComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "mrReview.resolve",
+          "group": "inline",
+          "when": "commentController == mr-review && commentThread == unresolved"
+        },
+        {
+          "command": "mrReview.unresolve",
+          "group": "inline",
+          "when": "commentController == mr-review && commentThread == resolved"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "mrReview.addToReview",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.postComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.resolve",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.unresolve",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.editComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.deleteComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.saveComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.cancelEditComment",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.addSuggestionToReview",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.publishSuggestion",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.cancelSuggestion",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openFile",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openDiscussions",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openDescription",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.toggleCheck",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openFileSinceReview",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openFileSinceReviewFromView",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openFileFromView",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.commentCheck",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.commentCheckFromView",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openDownstreamPipeline",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.updateWorktree",
+          "when": "mrReview.hasStaleWorktree"
+        },
+        {
+          "command": "mrReview.openDiscussion",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.runTriage",
+          "when": "mrReview.hasSession && mrReview.hasTriageCommand && !mrReview.triageRunning"
+        },
+        {
+          "command": "mrReview.cancelTriage",
+          "when": "mrReview.triageRunning"
+        },
+        {
+          "command": "mrReview.triageMergeRequest",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.cancelMergeRequestTriage",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.openMergeRequestInGitLab",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.reviewMergeRequest",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.clearMergeRequestFilter",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.hideDraftMergeRequests",
+          "when": "false"
+        },
+        {
+          "command": "mrReview.showDraftMergeRequests",
+          "when": "false"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "mrReview.editComment",
+          "group": "inline@1",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        },
+        {
+          "command": "mrReview.deleteComment",
+          "group": "inline@2",
+          "when": "commentController == mr-review && (comment == own || comment == draftNote)"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "mrReview.openFileSinceReviewFromView",
+          "group": "inline@1",
+          "when": "view == mrReview.files && viewItem == changedSinceReview"
+        },
+        {
+          "command": "mrReview.openFileFromView",
+          "group": "inline@2",
+          "when": "view == mrReview.files && viewItem == changedSinceReview"
+        },
+        {
+          "command": "mrReview.commentCheckFromView",
+          "group": "inline",
+          "when": "view == mrReview.files && viewItem == triageCheck"
+        },
+        {
+          "command": "mrReview.openDownstreamPipeline",
+          "group": "inline",
+          "when": "view == mrReview.pipeline && viewItem == downstreamJob"
+        },
+        {
+          "command": "mrReview.cancelTriage",
+          "group": "inline",
+          "when": "view == mrReview.files && viewItem == triageRunning"
+        },
+        {
+          "command": "mrReview.reviewMergeRequest",
+          "group": "inline@1",
+          "when": "view == mrReview.mergeRequests && viewItem == mergeRequest"
+        },
+        {
+          "command": "mrReview.openMergeRequestInGitLab",
+          "group": "inline@2",
+          "when": "view == mrReview.mergeRequests && viewItem =~ /^mergeRequest(Fork|Status)?$/"
+        },
+        {
+          "command": "mrReview.triageMergeRequest",
+          "group": "inline@2",
+          "when": "view == mrReview.mergeRequests && viewItem =~ /^mergeRequestTriage(None)?$/"
+        },
+        {
+          "command": "mrReview.cancelMergeRequestTriage",
+          "group": "inline@1",
+          "when": "view == mrReview.mergeRequests && viewItem == mergeRequestTriageRunning"
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "@types/node": "20.19.43",
+    "@types/vscode": "1.90.0",
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test test/",
+    "package": "scripts/package.sh"
+  }
+}
