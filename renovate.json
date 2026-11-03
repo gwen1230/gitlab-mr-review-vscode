@@ -1,5 +1,17 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": ["config:recommended"],
-  "semanticCommits": "enabled"
+  "semanticCommits": "enabled",
+  "packageRules": [
+    {
+      "description": "Types de l'API VS Code alignés sur engines.vscode : ils montent avec lui, à la main.",
+      "matchPackageNames": ["@types/vscode"],
+      "enabled": false
+    },
+    {
+      "description": "Types Node alignés sur le Node de l'extension host de VS Code 1.90 (Node 20).",
+      "matchPackageNames": ["@types/node"],
+      "allowedVersions": "<21"
+    }
+  ]
 }
