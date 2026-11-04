@@ -823,4 +823,4 @@ class FilesView {
   }
 }
 
-module.exports = { FilesView };
+module.exports.FilesView = FilesView;
