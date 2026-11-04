@@ -14,7 +14,8 @@
       "matchDepTypes": ["dependencies"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
       "groupName": "dépendances de production non majeures",
-      "groupSlug": "prod-non-majeures"
+      "groupSlug": "prod-non-majeures",
+      "semanticCommitType": "fix"
     },
     {
       "description": "Types de l'API VS Code alignés sur engines.vscode : ils montent avec lui, à la main.",
