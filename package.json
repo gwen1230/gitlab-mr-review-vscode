@@ -744,7 +744,7 @@
   "devDependencies": {
     "@types/node": "20.19.43",
     "@types/vscode": "1.90.0",
-    "typescript": "5.9.3"
+    "typescript": "7.0.2"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

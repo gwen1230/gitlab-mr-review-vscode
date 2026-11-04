@@ -306,4 +306,6 @@ class TriageRunner {
   }
 }
 
-module.exports = { TriageRunner, getBranchTriagePath, getTriageCommand };
+module.exports.TriageRunner = TriageRunner;
+module.exports.getBranchTriagePath = getBranchTriagePath;
+module.exports.getTriageCommand = getTriageCommand;

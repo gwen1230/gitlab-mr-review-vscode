@@ -91,4 +91,4 @@ class StatusBar {
   }
 }
 
-module.exports = { StatusBar };
+module.exports.StatusBar = StatusBar;
