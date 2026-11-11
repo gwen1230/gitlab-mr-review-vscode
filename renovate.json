@@ -1,30 +1,21 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"],
-  "semanticCommits": "enabled",
+  "extends": [
+    "local>gwen1230/shared-config"
+  ],
   "packageRules": [
     {
-      "description": "Regroupe les mises à jour non majeures au lieu d'ouvrir une PR par paquet. Chaque PR Renovate réécrit le lockfile : en fusionner une remettait toutes les autres en conflit, et Renovate en rouvrait plus vite qu'on ne pouvait les fusionner. Les majeures restent une PR chacune, à examiner séparément.",
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "mises à jour non majeures",
-      "groupSlug": "non-majeures"
-    },
-    {
-      "description": "Les dépendances de production non majeures ont leur propre groupe, pour que la PR garde le type `fix` : release-please ne publie une version que sur un `fix` ou un `feat`, et une mise à jour runtime noyée dans un groupe `chore` ne serait jamais déployée. Cette règle vient après la précédente, donc l'emporte sur elle.",
-      "matchDepTypes": ["dependencies"],
-      "matchUpdateTypes": ["minor", "patch", "pin", "digest"],
-      "groupName": "dépendances de production non majeures",
-      "groupSlug": "prod-non-majeures",
-      "semanticCommitType": "fix"
-    },
-    {
       "description": "Types de l'API VS Code alignés sur engines.vscode : ils montent avec lui, à la main.",
-      "matchPackageNames": ["@types/vscode"],
+      "matchPackageNames": [
+        "@types/vscode"
+      ],
       "enabled": false
     },
     {
       "description": "Types Node alignés sur le Node de l'extension host de VS Code 1.90 (Node 20).",
-      "matchPackageNames": ["@types/node"],
+      "matchPackageNames": [
+        "@types/node"
+      ],
       "allowedVersions": "<21"
     }
   ]
