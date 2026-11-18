@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.1](https://github.com/gwen1230/gitlab-mr-review-vscode/compare/v1.0.0...v1.0.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **renovate:** force le type `fix` sur le groupe des dépendances de production ([#12](https://github.com/gwen1230/gitlab-mr-review-vscode/issues/12)) ([f342e89](https://github.com/gwen1230/gitlab-mr-review-vscode/commit/f342e890c99996c116d6be90143744e46afbf06f))
+* **triage:** accepter `checks` à null, comme une clé absente ([f5ad972](https://github.com/gwen1230/gitlab-mr-review-vscode/commit/f5ad972a98c0818e68cf7b61c4c5c0b2802ab4a9))
+
 ## 1.0.0 (2026-11-03)
 
 
