@@ -34,6 +34,14 @@ test('validateTriage accepte les valeurs françaises des premiers triages', () =
   assert.deepEqual(validateTriage(frenchTriage, expected), { errors: [], warnings: [] });
 });
 
+test('validateTriage accepte des `checks` à null, comme absents', () => {
+  const triageWithNullChecks = {
+    ...triage,
+    files: [triage.files[0], { path: 'b.ts', level: 'green', checks: null }],
+  };
+  assert.deepEqual(validateTriage(triageWithNullChecks, expected), { errors: [], warnings: [] });
+});
+
 test('validateTriage refuse un JSON sans fichiers, un autre commit ou des valeurs inconnues', () => {
   assert.deepEqual(validateTriage({ head: HEAD }, expected).errors, ['no `files` list.']);
   assert.deepEqual(

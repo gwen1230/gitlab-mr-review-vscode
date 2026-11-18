@@ -80,7 +80,7 @@ function validateTriage(triage, expected) {
     if (file?.line !== undefined && !Number.isInteger(file.line)) {
       errors.push(t('{0}: invalid line "{1}".', label, String(file.line)));
     }
-    if (file?.checks !== undefined && !Array.isArray(file.checks)) {
+    if (file?.checks != null && !Array.isArray(file.checks)) {
       errors.push(t('{0}: `checks` is not a list.', label));
     }
     for (const check of Array.isArray(file?.checks) ? file.checks : []) {
