@@ -5,7 +5,7 @@ const { t } = require('./l10n');
 
 /**
  * Bloc « Filtres » au-dessus de la vue des fichiers : champ de recherche par chemin (filtré pendant la
- * frappe) et case « Non relus seulement ». Vue web, l'arbre ne pouvant pas porter de champ de saisie.
+ * frappe), cases « Non relus seulement » et « Fils non résolus seulement ». Vue web, l'arbre ne pouvant pas porter de champ de saisie.
  * @implements {vscode.WebviewViewProvider}
  */
 class FiltersView {
@@ -21,7 +21,9 @@ class FiltersView {
       vscode.window.registerWebviewViewProvider('mrReview.filters', this, {
         webviewOptions: { retainContextWhenHidden: true },
       }),
-      filesView.onDidChangeTreeData(() => this.postState())
+      filesView.onDidChangeTreeData(() => this.postState()),
+      // Le nombre de fichiers affichés par le filtre des fils non résolus change avec les discussions.
+      filesView.onDidChangeUnresolvedCounts(() => this.postState())
     );
   }
 
@@ -35,6 +37,8 @@ class FiltersView {
         await this.filesView.setFilter(message.text);
       } else if (message.type === 'unviewedOnly') {
         await this.filesView.setUnviewedOnly(message.value);
+      } else if (message.type === 'unresolvedOnly') {
+        await this.filesView.setUnresolvedOnly(message.value);
       } else if (message.type === 'ready') {
         this.postState();
       }
@@ -47,6 +51,7 @@ class FiltersView {
       type: 'state',
       text: this.filesView.filterText,
       isUnviewedOnly: this.filesView.isUnviewedOnly,
+      isUnresolvedOnly: this.filesView.isUnresolvedOnly,
       ...this.filesView.countShownFiles(),
     });
   }
@@ -69,6 +74,7 @@ function getHtml(nonce) {
   }
   input[type="search"]:focus { outline: 1px solid var(--vscode-focusBorder); outline-offset: -1px; }
   .row { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; gap: 8px; }
+  .checkboxes { display: flex; flex-direction: column; gap: 4px; }
   label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
   input[type="checkbox"] { accent-color: var(--vscode-checkbox-background); margin: 0; }
   .count { color: var(--vscode-descriptionForeground); white-space: nowrap; }
@@ -77,7 +83,10 @@ function getHtml(nonce) {
 <body>
   <input id="search" type="search" placeholder="${escapeHtml(t('Search paths…'))}" aria-label="${escapeHtml(t('Search for an MR file'))}">
   <div class="row">
-    <label><input id="unviewed" type="checkbox"> ${escapeHtml(t('Unviewed only'))}</label>
+    <div class="checkboxes">
+      <label><input id="unviewed" type="checkbox"> ${escapeHtml(t('Unviewed only'))}</label>
+      <label><input id="unresolved" type="checkbox"> ${escapeHtml(t('Unresolved threads only'))}</label>
+    </div>
     <span id="count" class="count"></span>
   </div>
 <script nonce="${nonce}">
@@ -85,6 +94,7 @@ function getHtml(nonce) {
   const countFormat = ${JSON.stringify(t('{0}/{1} files'))};
   const search = document.getElementById('search');
   const unviewed = document.getElementById('unviewed');
+  const unresolved = document.getElementById('unresolved');
   const count = document.getElementById('count');
   search.addEventListener('input', () => vscode.postMessage({ type: 'filter', text: search.value }));
   search.addEventListener('keydown', (event) => {
@@ -96,6 +106,9 @@ function getHtml(nonce) {
   unviewed.addEventListener('change', () =>
     vscode.postMessage({ type: 'unviewedOnly', value: unviewed.checked })
   );
+  unresolved.addEventListener('change', () =>
+    vscode.postMessage({ type: 'unresolvedOnly', value: unresolved.checked })
+  );
   window.addEventListener('message', ({ data }) => {
     if (data.type !== 'state') {
       return;
@@ -105,6 +118,7 @@ function getHtml(nonce) {
       search.value = data.text;
     }
     unviewed.checked = data.isUnviewedOnly;
+    unresolved.checked = data.isUnresolvedOnly;
     count.textContent = data.total
       ? countFormat.replace('{0}', data.shown).replace('{1}', data.total)
       : '';

@@ -3,11 +3,15 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const {
   countUnresolvedByFile,
+  extractSnippet,
   getExcerpt,
   getDocumentEntries,
+  getEntryKey,
+  getEntryPosition,
   getGeneralDiscussions,
+  getSnippetSource,
+  layoutDiscussionsDocument,
   locatePosition,
-  renderDiscussionsDocument,
 } = require('../src/discussions');
 
 const HEAD = 'head-actuel';
@@ -154,14 +158,9 @@ test('getDocumentEntries : discussions générales, fils et brouillons sans empl
   const locations = locate(allDiscussions);
   locations.drafts.set(3, { path: 'a.ts', side: 'new', startLine: 3, endLine: 3 });
   const entries = getDocumentEntries(allDiscussions, drafts, locations);
-  assert.deepEqual(
-    entries.map((entry) =>
-      entry.kind === 'draft' ? `draft:${entry.draft.id}` : entry.discussion.id
-    ),
-    ['general', outdated.id, 'draft:1', 'draft:4']
-  );
+  assert.deepEqual(entries.map(getEntryKey), ['general', outdated.id, 'draft:1', 'draft:4']);
   assert.equal(
-    renderDiscussionsDocument(entries),
+    layoutDiscussionsDocument(entries).text,
     [
       '● Alice · 2026-10-26 — Pourquoi ce choix ?',
       '● a.ts:12 (previous version) · Alice · 2026-10-27 — x',
@@ -170,6 +169,114 @@ test('getDocumentEntries : discussions générales, fils et brouillons sans empl
       '+ New general comment: click in the margin of this line.',
     ].join('\n')
   );
+});
+
+test('getEntryPosition : position des fils et brouillons de code, rien pour une discussion générale', () => {
+  const outdated = diffNote({ new_path: 'a.ts', old_path: 'a.ts' }, false, 'ancien-head');
+  const draft = {
+    id: 4,
+    note: 'x',
+    discussion_id: null,
+    position: { new_path: 'a.ts', new_line: 5 },
+  };
+  assert.equal(getEntryPosition({ kind: 'discussion', discussion: outdated }).new_line, 12);
+  assert.equal(getEntryPosition({ kind: 'draft', draft }).new_line, 5);
+  assert.equal(getEntryPosition({ kind: 'discussion', discussion: generalNote }), undefined);
+  assert.equal(
+    getEntryPosition({ kind: 'draft', draft: { id: 1, note: 'x', position: null } }),
+    undefined
+  );
+});
+
+test('getSnippetSource : commit et chemin du côté de la position, plage de lignes', () => {
+  assert.deepEqual(
+    getSnippetSource({
+      base_sha: 'base',
+      head_sha: 'head',
+      old_path: 'old/b.ts',
+      new_path: 'new/b.ts',
+      new_line: 12,
+      line_range: { start: { new_line: 10 }, end: { new_line: 12 } },
+    }),
+    { sha: 'head', path: 'new/b.ts', startLine: 10, endLine: 12 }
+  );
+  assert.deepEqual(
+    getSnippetSource({
+      base_sha: 'base',
+      head_sha: 'head',
+      old_path: 'old/b.ts',
+      new_path: 'new/b.ts',
+      old_line: 7,
+      new_line: null,
+    }),
+    { sha: 'base', path: 'old/b.ts', startLine: 7, endLine: 7 }
+  );
+  assert.equal(getSnippetSource({ new_path: 'a.ts', new_line: 3 }), undefined);
+});
+
+test('extractSnippet : contexte au-dessus des lignes commentées, plafonné', () => {
+  const content = Array.from({ length: 40 }, (_, index) => `ligne ${index + 1}`).join('\r\n');
+  assert.deepEqual(
+    extractSnippet(content, { sha: 's', path: 'src/App.TSX', startLine: 5, endLine: 6 }),
+    {
+      language: 'tsx',
+      lines: ['ligne 2', 'ligne 3', 'ligne 4', 'ligne 5', 'ligne 6'],
+      commentedFrom: 3,
+      commentedTo: 4,
+    }
+  );
+  // Début du fichier : moins de contexte.
+  assert.deepEqual(
+    extractSnippet(content, { sha: 's', path: 'Dockerfile', startLine: 1, endLine: 1 }),
+    { language: 'dockerfile', lines: ['ligne 1'], commentedFrom: 0, commentedTo: 0 }
+  );
+  // Plage longue : les 20 dernières lignes, toutes commentées.
+  const long = extractSnippet(content, { sha: 's', path: 'a', startLine: 2, endLine: 30 });
+  assert.equal(long?.lines.length, 20);
+  assert.equal(long?.lines[0], 'ligne 11');
+  assert.deepEqual([long?.commentedFrom, long?.commentedTo, long?.language], [0, 19, '']);
+  assert.equal(
+    extractSnippet(content, { sha: 's', path: 'a', startLine: 41, endLine: 41 }),
+    undefined
+  );
+});
+
+test('layoutDiscussionsDocument : extrait de code sous un fil sur une version précédente', () => {
+  const outdated = diffNote({ new_path: 'a.md', old_path: 'a.md' }, false, 'ancien-head');
+  const layout = layoutDiscussionsDocument([
+    { kind: 'discussion', discussion: generalNote },
+    {
+      kind: 'discussion',
+      discussion: outdated,
+      snippet: {
+        language: 'md',
+        lines: ['avant', '```js', 'commenté'],
+        commentedFrom: 2,
+        commentedTo: 2,
+      },
+    },
+    { kind: 'draft', draft: { id: 1, note: 'brouillon général', position: null } },
+  ]);
+  assert.equal(
+    layout.text,
+    [
+      '● Alice · 2026-10-26 — Pourquoi ce choix ?',
+      '● a.md:12 (previous version) · Alice · 2026-10-27 — x',
+      '````md',
+      'avant',
+      '```js',
+      'commenté',
+      '````',
+      '✎ Draft — brouillon général',
+      '+ New general comment: click in the margin of this line.',
+    ].join('\n')
+  );
+  assert.deepEqual(layout.entryRanges, [
+    { startLine: 1, endLine: 1 },
+    { startLine: 2, endLine: 7, commented: { startLine: 6, endLine: 6 } },
+    { startLine: 8, endLine: 8 },
+  ]);
+  assert.equal(layout.newCommentLine, 9);
 });
 
 test('getExcerpt tronque la première ligne non vide', () => {

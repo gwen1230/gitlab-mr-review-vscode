@@ -1,9 +1,19 @@
 // @ts-check
+const path = require('node:path');
 const { toPositionLines } = require('./diff');
 const { t } = require('./l10n');
 
 /** Longueur maximale d'un extrait de commentaire affiché sur une ligne. */
 const EXCERPT_LENGTH = 90;
+/** Lignes de contexte affichées au-dessus du code commenté d'un fil sur une version précédente. */
+const SNIPPET_CONTEXT_LINES = 3;
+/** Nombre maximal de lignes de code affichées pour un fil sur une version précédente. */
+const SNIPPET_MAX_LINES = 20;
+/** Langage du bloc de code markdown, quand l'extension du fichier ne suffit pas. */
+const FENCE_LANGUAGES = new Map([
+  ['dockerfile', 'dockerfile'],
+  ['makefile', 'makefile'],
+]);
 
 /**
  * Emplacement d'un fil dans le diff courant : nouveau chemin du fichier, côté du diff, lignes 1-based.
@@ -102,8 +112,85 @@ function isGeneralDraft(draft) {
 }
 
 /**
- * @typedef {{ kind: 'discussion', discussion: any } | { kind: 'draft', draft: any }} DocumentEntry
+ * Code commenté d'un fil sur une version précédente, tel qu'il était à cette version : quelques lignes
+ * de contexte puis les lignes commentées (`commentedFrom` à `commentedTo`, indices dans `lines`).
+ * @typedef {{ language: string, lines: string[], commentedFrom: number, commentedTo: number }} Snippet
+ * @typedef {({ kind: 'discussion', discussion: any } | { kind: 'draft', draft: any }) & { snippet?: Snippet }} DocumentEntry
+ * @typedef {{ sha: string, path: string, startLine: number, endLine: number }} SnippetSource
  */
+
+/**
+ * Clé d'une entrée du document des discussions : l'identifiant de la discussion, ou `draft:<id>`.
+ * @param {DocumentEntry} entry
+ */
+function getEntryKey(entry) {
+  return entry.kind === 'draft' ? `draft:${entry.draft.id}` : entry.discussion.id;
+}
+
+/**
+ * Position sur le code d'une entrée du document des discussions, absente pour une discussion générale.
+ * @param {DocumentEntry} entry
+ */
+function getEntryPosition(entry) {
+  if (entry.kind === 'draft') {
+    return isDiffDraft(entry.draft) ? entry.draft.position : undefined;
+  }
+  return isDiffDiscussion(entry.discussion) ? entry.discussion.notes[0].position : undefined;
+}
+
+/**
+ * Version du fichier où lire le code commenté d'une position : commit et chemin de son côté du diff,
+ * lignes commentées (1-based).
+ * @param {any} position
+ * @returns {SnippetSource | undefined}
+ */
+function getSnippetSource(position) {
+  const side = getPositionSide(position);
+  const sha = side === 'new' ? position.head_sha : position.base_sha;
+  const filePath = side === 'new' ? position.new_path : position.old_path;
+  /** @type {number | undefined} */
+  const endLine = position[`${side}_line`];
+  if (!sha || !filePath || !endLine) {
+    return undefined;
+  }
+  const startLine = Math.min(position.line_range?.start?.[`${side}_line`] ?? endLine, endLine);
+  return { sha, path: filePath, startLine, endLine };
+}
+
+/**
+ * Extrait du fichier autour des lignes commentées : quelques lignes de contexte au-dessus, au plus
+ * `SNIPPET_MAX_LINES` lignes en tout (les dernières lignes commentées d'abord).
+ * @param {string} content contenu du fichier à la version de la position
+ * @param {SnippetSource} source
+ * @returns {Snippet | undefined} absent si le fichier n'a pas ces lignes
+ */
+function extractSnippet(content, source) {
+  const fileLines = content.split('\n');
+  if (source.endLine > fileLines.length) {
+    return undefined;
+  }
+  const firstLine = Math.max(
+    1,
+    source.startLine - SNIPPET_CONTEXT_LINES,
+    source.endLine - SNIPPET_MAX_LINES + 1
+  );
+  return {
+    language: getFenceLanguage(source.path),
+    lines: fileLines.slice(firstLine - 1, source.endLine).map((line) => line.replace(/\r$/, '')),
+    commentedFrom: Math.max(source.startLine, firstLine) - firstLine,
+    commentedTo: source.endLine - firstLine,
+  };
+}
+
+/**
+ * Langage d'un bloc de code markdown pour un fichier : son extension, que VS Code reconnaît pour les
+ * langages courants.
+ * @param {string} filePath
+ */
+function getFenceLanguage(filePath) {
+  const basename = path.posix.basename(filePath).toLowerCase();
+  return FENCE_LANGUAGES.get(basename) ?? path.posix.extname(basename).slice(1);
+}
 
 /**
  * Ce qui n'a pas sa place sur une ligne de code, dans l'ordre du document des discussions : discussions
@@ -195,29 +282,74 @@ function describeOutdatedPosition(position) {
 }
 
 /**
- * Contenu du document des discussions : une ligne par entrée (son fil s'y accroche), puis une ligne
- * pour ouvrir une nouvelle discussion générale.
- * @param {DocumentEntry[]} entries
+ * Lignes du document des discussions occupées par une entrée (1-based) : sa ligne de description,
+ * puis l'extrait de code s'il y en a un. `commented` couvre les lignes commentées de l'extrait.
+ * @typedef {{ startLine: number, endLine: number, commented?: { startLine: number, endLine: number } }} EntryRange
+ * @typedef {{ text: string, entryRanges: EntryRange[], newCommentLine: number }} DiscussionsLayout
  */
-function renderDiscussionsDocument(entries) {
-  return [
-    ...entries.map(describeEntry),
-    t('+ New general comment: click in the margin of this line.'),
-  ].join('\n');
+
+/**
+ * Contenu du document des discussions (markdown) : pour chaque entrée, une ligne de description (son
+ * fil s'y accroche) suivie, pour un fil sur une version précédente, du code commenté dans un bloc de
+ * code ; puis une ligne pour ouvrir une nouvelle discussion générale.
+ * @param {DocumentEntry[]} entries
+ * @returns {DiscussionsLayout}
+ */
+function layoutDiscussionsDocument(entries) {
+  /** @type {string[]} */
+  const lines = [];
+  const entryRanges = entries.map((entry) => {
+    const startLine = lines.length + 1;
+    lines.push(describeEntry(entry));
+    const { snippet } = entry;
+    if (!snippet) {
+      return { startLine, endLine: startLine };
+    }
+    const fence = getFence(snippet.lines);
+    lines.push(`${fence}${snippet.language}`);
+    const codeStartLine = lines.length + 1;
+    lines.push(...snippet.lines, fence);
+    return {
+      startLine,
+      endLine: lines.length,
+      commented: {
+        startLine: codeStartLine + snippet.commentedFrom,
+        endLine: codeStartLine + snippet.commentedTo,
+      },
+    };
+  });
+  lines.push(t('+ New general comment: click in the margin of this line.'));
+  return { text: lines.join('\n'), entryRanges, newCommentLine: lines.length };
+}
+
+/**
+ * Délimiteur d'un bloc de code markdown plus long que toute suite d'accents graves du code.
+ * @param {string[]} codeLines
+ */
+function getFence(codeLines) {
+  const longestRun = Math.max(
+    0,
+    ...codeLines.flatMap((line) => (line.match(/`+/g) ?? []).map((run) => run.length))
+  );
+  return '`'.repeat(Math.max(3, longestRun + 1));
 }
 
 module.exports = {
   NO_LOCATIONS,
   countUnresolvedByFile,
   describeEntry,
+  extractSnippet,
   getDocumentEntries,
+  getEntryKey,
+  getEntryPosition,
   getExcerpt,
   getGeneralDiscussions,
   getPositionSide,
+  getSnippetSource,
   isDiffDiscussion,
   isDiffDraft,
   isResolvable,
   isUnresolved,
+  layoutDiscussionsDocument,
   locatePosition,
-  renderDiscussionsDocument,
 };

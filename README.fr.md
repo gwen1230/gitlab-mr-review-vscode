@@ -53,16 +53,18 @@ Icône MR Review de la barre d'activité :
   fils posés sur une version précédente dont la ligne a changé depuis. Comme dans GitLab, un fil d'une
   version précédente reste sur le code, à sa ligne décalée, tant que les commits suivants n'ont pas
   touché cette ligne. Ils s'ouvrent dans un document où l'on répond, résout, ou commente la MR
-  (dernière ligne).
+  (dernière ligne). Sous un fil d'une version précédente, le code commenté tel qu'il était à cette
+  version, avec quelques lignes de contexte et les lignes commentées surlignées.
 - **Fichiers** groupés 🔴 / 🟠 / 🟢 dans l'ordre du [triage](#triage) s'il y en a un, sinon par
   dossier. Chaque fichier affiche ses fils non résolus (💬 n) et une
   case « relu », qui se décoche si un commit retouche le fichier.
 - **Chaque fichier** affiche ses lignes ajoutées et supprimées (`+12 -3`).
 - **Bloc « Filtres »** au-dessus des fichiers : champ de recherche dans les chemins, filtré pendant la
-  frappe (plusieurs termes séparés par des espaces, tous requis ; Échap vide le champ), case « Non
-  relus seulement » et nombre de fichiers affichés. Les groupes se déplient pour montrer tous les
-  résultats ; la navigation fichier suivant / précédent suit le filtre. Le bouton ✕ du titre des
-  fichiers efface les deux.
+  frappe (plusieurs termes séparés par des espaces, tous requis ; Échap vide le champ), cases « Non
+  relus seulement » et « Fils non résolus seulement » (fichiers avec un fil non résolu sur leur code ;
+  les discussions hors code ne gardent que les fils non résolus et les brouillons), et nombre de
+  fichiers affichés. Les groupes se déplient pour montrer tous les résultats ; la navigation fichier
+  suivant / précédent suit le filtre. Le bouton ✕ du titre des fichiers efface tous les filtres.
 - **🔄 Modifiés depuis ma relecture** : un fichier coché puis retouché par un commit se décoche et
   remonte dans ce groupe. Un clic ouvre le diff entre la version relue et la version actuelle ; les
   boutons de la ligne donnent le choix avec le diff complet de la MR. Le recocher enregistre la

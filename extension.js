@@ -27,15 +27,19 @@ const { TriageRunner, getTriageCommand } = require('./src/triage-runner');
 const { MergeRequestsView } = require('./src/merge-requests-view');
 const { renderDescriptionDocument } = require('./src/description');
 const {
+  extractSnippet,
   getDocumentEntries,
+  getEntryKey,
+  getEntryPosition,
   getExcerpt,
   getPositionSide,
+  getSnippetSource,
   isDiffDiscussion,
   isDiffDraft,
   isResolvable,
   isUnresolved,
+  layoutDiscussionsDocument,
   locatePosition,
-  renderDiscussionsDocument,
 } = require('./src/discussions');
 
 /** Côté gauche d'un fichier ajouté : document vide. */
@@ -70,6 +74,8 @@ const POLL_MS = 30_000;
  * @property {Promise<any[]>} discussions
  * @property {Promise<any[]>} drafts brouillons de review de l'utilisateur connecté
  * @property {Promise<import('./src/discussions').ThreadLocations>} threadLocations
+ * @property {Map<string, Promise<string>>} fileVersions contenu d'un fichier à un commit, par
+ *   `<sha>:<chemin>`, pour le code des fils sur une version précédente
  * @property {Set<string>} renderedUris
  * @property {vscode.CommentThread[]} threads
  */
@@ -119,6 +125,8 @@ let filesView;
 let statusBar;
 /** @type {TriageRunner} */
 let triageRunner;
+/** @type {vscode.TextEditorDecorationType} lignes commentées des extraits du document des discussions */
+let commentedCodeDecoration;
 
 /** @param {vscode.ExtensionContext} context */
 exports.activate = (context) => {
@@ -132,6 +140,10 @@ exports.activate = (context) => {
     provideCommentingRanges: getCommentingRanges,
   };
   triageRunner = new TriageRunner(context);
+  commentedCodeDecoration = vscode.window.createTextEditorDecorationType({
+    isWholeLine: true,
+    backgroundColor: new vscode.ThemeColor('editor.rangeHighlightBackground'),
+  });
   filesView = new FilesView(
     context,
     {
@@ -181,6 +193,7 @@ exports.activate = (context) => {
 
   context.subscriptions.push(
     controller,
+    commentedCodeDecoration,
     sessionsChangeEmitter,
     discussionsDocumentEmitter,
     descriptionDocumentEmitter,
@@ -250,8 +263,9 @@ exports.activate = (context) => {
     registerCommand('mrReview.openFileFromView', (node) =>
       openFile(context, node.session.repoRoot, node.path, node.line)
     ),
-    registerCommand('mrReview.openDiscussions', (repoRoot, line) =>
-      openDiscussionsDocument(context, repoRoot, line)
+    // Depuis la vue : sans clé, sur la ligne du nouveau commentaire général.
+    registerCommand('mrReview.openDiscussions', (repoRoot, entryKey) =>
+      openDiscussionsEntry(context, repoRoot, entryKey)
     ),
     registerCommand('mrReview.openDiscussion', (repoRoot, discussionId) =>
       openDiscussion(context, repoRoot, discussionId)
@@ -322,6 +336,7 @@ exports.activate = (context) => {
     registerCommand('mrReview.clearFilter', async () => {
       await filesView.setFilter('');
       await filesView.setUnviewedOnly(false);
+      await filesView.setUnresolvedOnly(false);
     }),
     registerCommand('mrReview.showUnviewedOnly', () => filesView.setUnviewedOnly(true)),
     registerCommand('mrReview.showAllFiles', () => filesView.setUnviewedOnly(false)),
@@ -347,6 +362,10 @@ exports.activate = (context) => {
     ),
     registerCommand('mrReview.signOut', () => signOut(context)),
     vscode.workspace.onDidOpenTextDocument((document) => run(() => renderThreads(document))),
+    vscode.window.onDidChangeVisibleTextEditors(() => run(decorateDiscussionsEditors)),
+    vscode.workspace.onDidChangeTextDocument(
+      (event) => event.document.uri.scheme === DISCUSSIONS_SCHEME && run(decorateDiscussionsEditors)
+    ),
     sessionsChangeEmitter.event(() =>
       run(async () => {
         await vscode.commands.executeCommand(
@@ -538,7 +557,8 @@ async function openDiscussionsDocument(context, repoRoot, line) {
 function getDiscussionsDocumentUri(session) {
   return vscode.Uri.from({
     scheme: DISCUSSIONS_SCHEME,
-    path: `/!${session.mr.iid} discussions`,
+    // L'extension `.md` fait reconnaître le document comme du markdown : coloration des extraits de code.
+    path: `/!${session.mr.iid} discussions.md`,
     query: new URLSearchParams({ repo: session.repoRoot }).toString(),
   });
 }
@@ -553,14 +573,93 @@ function getDescriptionDocumentUri(session) {
   });
 }
 
-/** @param {ReviewSession} session */
+/**
+ * Entrées du document des discussions, avec le code commenté des fils sur une version précédente.
+ * @param {ReviewSession} session
+ */
 async function getSessionDocumentEntries(session) {
   const [discussions, drafts, locations] = await Promise.all([
     session.discussions,
     session.drafts,
     session.threadLocations,
   ]);
-  return getDocumentEntries(discussions, drafts, locations);
+  return Promise.all(
+    getDocumentEntries(discussions, drafts, locations).map(async (entry) => {
+      const position = getEntryPosition(entry);
+      const source = position && getSnippetSource(position);
+      if (!source) {
+        return entry;
+      }
+      const content = await readFileVersion(session, source.sha, source.path).catch(
+        () => undefined
+      );
+      const snippet = content === undefined ? undefined : extractSnippet(content, source);
+      return snippet ? { ...entry, snippet } : entry;
+    })
+  );
+}
+
+/** @param {ReviewSession} session */
+async function getDiscussionsLayout(session) {
+  return layoutDiscussionsDocument(await getSessionDocumentEntries(session));
+}
+
+/**
+ * Contenu d'un fichier à un commit. Le commit d'une version précédente peut manquer en local après un
+ * force-push : GitLab le garde pour ses fils.
+ * @param {ReviewSession} session
+ * @param {string} sha
+ * @param {string} filePath
+ */
+function readFileVersion(session, sha, filePath) {
+  const key = `${sha}:${filePath}`;
+  const cached = session.fileVersions.get(key);
+  if (cached) {
+    return cached;
+  }
+  // Un échec reste en cache, comme pour `getVersionHunks` : pas de fetch à chaque relecture de la MR.
+  const content = ensureCommit(session.repoRoot, sha).then(() =>
+    git(session.repoRoot, ['show', `${sha}:${filePath}`])
+  );
+  session.fileVersions.set(key, content);
+  return content;
+}
+
+/** Surligne les lignes commentées des extraits de code dans les documents des discussions affichés. */
+async function decorateDiscussionsEditors() {
+  for (const editor of vscode.window.visibleTextEditors) {
+    const { uri } = editor.document;
+    if (uri.scheme !== DISCUSSIONS_SCHEME) {
+      continue;
+    }
+    const session = sessions.get(new URLSearchParams(uri.query).get('repo') ?? '');
+    const layout = session ? await getDiscussionsLayout(session) : undefined;
+    editor.setDecorations(
+      commentedCodeDecoration,
+      (layout?.entryRanges ?? []).flatMap(({ commented }) =>
+        commented ? [new vscode.Range(commented.startLine - 1, 0, commented.endLine - 1, 0)] : []
+      )
+    );
+  }
+}
+
+/**
+ * Ouvre le document des discussions sur une entrée (clé de `getEntryKey`), ou sans clé sur la ligne du
+ * nouveau commentaire général.
+ * @param {vscode.ExtensionContext} context
+ * @param {string} repoRoot
+ * @param {string} [entryKey]
+ */
+async function openDiscussionsEntry(context, repoRoot, entryKey) {
+  const session = await getSession(context, repoRoot);
+  const entries = await getSessionDocumentEntries(session);
+  const layout = layoutDiscussionsDocument(entries);
+  const index = entryKey ? entries.findIndex((entry) => getEntryKey(entry) === entryKey) : -1;
+  await openDiscussionsDocument(
+    context,
+    repoRoot,
+    index >= 0 ? layout.entryRanges[index].startLine : layout.newCommentLine
+  );
 }
 
 /**
@@ -577,10 +676,7 @@ async function openDiscussion(context, repoRoot, discussionId) {
     await openFile(context, repoRoot, location.path, location.endLine);
     return;
   }
-  const index = (await getSessionDocumentEntries(session)).findIndex(
-    (entry) => entry.kind === 'discussion' && entry.discussion.id === discussionId
-  );
-  await openDiscussionsDocument(context, repoRoot, index + 1);
+  await openDiscussionsEntry(context, repoRoot, discussionId);
 }
 
 /** @param {vscode.Uri} uri */
@@ -589,7 +685,7 @@ async function provideDiscussionsDocument(uri) {
   if (!session) {
     return t('MR not loaded: reopen the discussions from the MR Review view.');
   }
-  return renderDiscussionsDocument(await getSessionDocumentEntries(session));
+  return (await getDiscussionsLayout(session)).text;
 }
 
 /**
@@ -731,6 +827,7 @@ async function createSession(context, repoRoot) {
     files,
     hunks: new Map(),
     versionHunks: new Map(),
+    fileVersions: new Map(),
     discussions: Promise.resolve([]),
     drafts: Promise.resolve([]),
     threadLocations: Promise.resolve({
@@ -1291,16 +1388,20 @@ async function renderThreads(document) {
 
   if (target.kind === 'discussions') {
     const entries = await getSessionDocumentEntries(session);
+    const { entryRanges } = layoutDiscussionsDocument(entries);
     entries.forEach((entry, index) => {
+      // Le fil couvre la description et l'extrait de code : il s'affiche sous le code.
+      const { startLine, endLine } = entryRanges[index];
       if (entry.kind === 'discussion') {
         threadsByDiscussion.set(
           entry.discussion.id,
-          createDiscussionThread(session, document.uri, index + 1, index + 1, entry.discussion)
+          createDiscussionThread(session, document.uri, startLine, endLine, entry.discussion)
         );
       } else {
-        createDraftThread(session, document.uri, index + 1, index + 1, entry.draft);
+        createDraftThread(session, document.uri, startLine, endLine, entry.draft);
       }
     });
+    await decorateDiscussionsEditors();
   } else {
     for (const discussion of discussions) {
       const location = locations.discussions.get(discussion.id);
@@ -1436,9 +1537,7 @@ async function refreshThreads(session, previousDiscussionIds, previousEntriesKey
 
 /** @param {import('./src/discussions').DocumentEntry[]} entries */
 function getEntriesKey(entries) {
-  return entries
-    .map((entry) => (entry.kind === 'draft' ? `draft:${entry.draft.id}` : entry.discussion.id))
-    .join();
+  return entries.map(getEntryKey).join();
 }
 
 /**
@@ -2011,9 +2110,11 @@ async function goToAdjacentThread(context, step) {
         ]
       : [];
   });
-  (await getSessionDocumentEntries(session)).forEach((entry, index) => {
+  const documentEntries = await getSessionDocumentEntries(session);
+  const { entryRanges } = layoutDiscussionsDocument(documentEntries);
+  documentEntries.forEach((entry, index) => {
     if (entry.kind === 'discussion' && isUnresolved(entry.discussion)) {
-      stops.push({ order: documentOrder, line: index + 1 });
+      stops.push({ order: documentOrder, line: entryRanges[index].startLine });
     }
   });
   if (stops.length === 0) {
