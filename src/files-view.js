@@ -7,6 +7,7 @@ const {
   NO_LOCATIONS,
   countUnresolvedByFile,
   getDocumentEntries,
+  getEntryKey,
   getExcerpt,
   isDiffDiscussion,
   isDiffDraft,
@@ -53,7 +54,7 @@ const COMBINING_STRIKETHROUGH = '̶';
  * @typedef {{ kind: 'file', session: ViewSession, path: string, line?: number, reasons?: string, checks?: import('./triage').TriageCheck[], isTriaged: boolean, parent?: GroupNode }} FileNode
  * @typedef {{ kind: 'check', session: ViewSession, path: string, check: import('./triage').TriageCheck, parent: FileNode }} CheckNode
  * @typedef {{ kind: 'discussions', session: ViewSession, entries: import('./discussions').DocumentEntry[] }} DiscussionsNode
- * @typedef {{ kind: 'discussionEntry', session: ViewSession, entry: import('./discussions').DocumentEntry, line: number, parent: DiscussionsNode }} DiscussionEntryNode
+ * @typedef {{ kind: 'discussionEntry', session: ViewSession, entry: import('./discussions').DocumentEntry, parent: DiscussionsNode }} DiscussionEntryNode
  * @typedef {SessionNode | DescriptionNode | TriageActionNode | GroupNode | FileNode | CheckNode | DiscussionsNode | DiscussionEntryNode} Node
  */
 
@@ -86,9 +87,14 @@ class FilesView {
     /** Termes du filtre par chemin, séparés par des espaces : tous doivent figurer dans le chemin. */
     this.filterText = '';
     this.isUnviewedOnly = false;
+    /** Seulement les fichiers avec des fils non résolus, et les discussions hors code non résolues. */
+    this.isUnresolvedOnly = false;
     /** @type {vscode.EventEmitter<void>} */
     this.changeEmitter = new vscode.EventEmitter();
     this.onDidChangeTreeData = this.changeEmitter.event;
+    /** @type {vscode.EventEmitter<void>} fils non résolus par fichier recomptés, et changés */
+    this.unresolvedCountsEmitter = new vscode.EventEmitter();
+    this.onDidChangeUnresolvedCounts = this.unresolvedCountsEmitter.event;
     this.treeView = vscode.window.createTreeView('mrReview.files', {
       treeDataProvider: this,
       manageCheckboxStateManually: true,
@@ -104,6 +110,7 @@ class FilesView {
     };
     context.subscriptions.push(
       this.changeEmitter,
+      this.unresolvedCountsEmitter,
       this.treeView,
       watcher,
       watcher.onDidCreate(reloadTriages),
@@ -140,8 +147,15 @@ class FilesView {
     this.changeEmitter.fire();
   }
 
+  /** @param {boolean} isUnresolvedOnly */
+  async setUnresolvedOnly(isUnresolvedOnly) {
+    this.isUnresolvedOnly = isUnresolvedOnly;
+    await vscode.commands.executeCommand('setContext', 'mrReview.hasFilter', this.hasFilter());
+    this.changeEmitter.fire();
+  }
+
   hasFilter() {
-    return this.filterText !== '' || this.isUnviewedOnly;
+    return this.filterText !== '' || this.isUnviewedOnly || this.isUnresolvedOnly;
   }
 
   /** Fichiers affichés par les filtres, sur toutes les MR chargées. */
@@ -164,7 +178,8 @@ class FilesView {
     const terms = this.filterText.toLowerCase().split(/\s+/).filter(Boolean);
     return (
       terms.every((term) => lowerPath.includes(term)) &&
-      !(this.isUnviewedOnly && this.isViewed(session, filePath))
+      !(this.isUnviewedOnly && this.isViewed(session, filePath)) &&
+      !(this.isUnresolvedOnly && !this.unresolvedCounts.get(session.repoRoot)?.get(filePath))
     );
   }
 
@@ -222,13 +237,14 @@ class FilesView {
       }));
     }
     if (node.kind === 'discussions') {
-      return node.entries.map((entry, index) => ({
-        kind: 'discussionEntry',
-        session: node.session,
-        entry,
-        line: index + 1,
-        parent: node,
-      }));
+      return node.entries
+        .filter((entry) => !this.isUnresolvedOnly || isUnresolvedEntry(entry))
+        .map((entry) => ({
+          kind: 'discussionEntry',
+          session: node.session,
+          entry,
+          parent: node,
+        }));
     }
     return [];
   }
@@ -257,7 +273,6 @@ class FilesView {
       session.drafts.catch(() => []),
       session.threadLocations.catch(() => NO_LOCATIONS),
     ]);
-    this.unresolvedCounts.set(session.repoRoot, countUnresolvedByFile(discussions, locations));
     const fileGroups = await this.getFileGroups(session);
     /** @type {GroupNode} */
     const changedSinceReviewGroup = {
@@ -296,6 +311,7 @@ class FilesView {
    * @returns {Promise<GroupNode[]>}
    */
   async getFileGroups(session) {
+    await this.updateUnresolvedCounts(session);
     const triage = await this.getTriage(session);
     /** @type {GroupNode[]} */
     let groups;
@@ -332,6 +348,24 @@ class FilesView {
     groups = groups.filter((group) => group.files.length > 0);
     groups.forEach((group) => group.files.forEach((file) => (file.parent = group)));
     return groups;
+  }
+
+  /**
+   * Recompte les fils non résolus par fichier, dont dépend le filtre « Fils non résolus seulement ».
+   * @param {ViewSession} session
+   */
+  async updateUnresolvedCounts(session) {
+    const [discussions, locations] = await Promise.all([
+      session.discussions.catch(() => []),
+      session.threadLocations.catch(() => NO_LOCATIONS),
+    ]);
+    const counts = countUnresolvedByFile(discussions, locations);
+    /** @param {Map<string, number> | undefined} countMap */
+    const toKey = (countMap) => JSON.stringify([...(countMap ?? [])].sort());
+    if (toKey(counts) !== toKey(this.unresolvedCounts.get(session.repoRoot))) {
+      this.unresolvedCounts.set(session.repoRoot, counts);
+      this.unresolvedCountsEmitter.fire();
+    }
   }
 
   /**
@@ -433,9 +467,12 @@ class FilesView {
         const unresolvedCount = node.entries.filter(
           (entry) => entry.kind === 'discussion' && isUnresolved(entry.discussion)
         ).length;
+        const shownEntryCount = node.entries.filter(
+          (entry) => !this.isUnresolvedOnly || isUnresolvedEntry(entry)
+        ).length;
         const item = new vscode.TreeItem(
           t('💬 Discussions outside code'),
-          node.entries.length > 0
+          shownEntryCount > 0
             ? vscode.TreeItemCollapsibleState.Collapsed
             : vscode.TreeItemCollapsibleState.None
         );
@@ -447,7 +484,7 @@ class FilesView {
         item.command = {
           command: 'mrReview.openDiscussions',
           title: t('Open discussions'),
-          arguments: [session.repoRoot, node.entries.length + 1],
+          arguments: [session.repoRoot],
         };
         return item;
       }
@@ -520,7 +557,7 @@ class FilesView {
     const command = {
       command: 'mrReview.openDiscussions',
       title: t('Open discussion'),
-      arguments: [session.repoRoot, node.line],
+      arguments: [session.repoRoot, getEntryKey(entry)],
     };
     if (entry.kind === 'draft') {
       const item = new vscode.TreeItem(getExcerpt(entry.draft.note));
@@ -821,6 +858,15 @@ class FilesView {
     const triage = await this.getTriage(session).catch(() => undefined);
     return triage?.files.find((file) => file.path === filePath)?.checks ?? [];
   }
+}
+
+/**
+ * Entrée gardée par le filtre « Fils non résolus seulement » : fil non résolu, ou brouillon (pas encore
+ * publié, donc à traiter).
+ * @param {import('./discussions').DocumentEntry} entry
+ */
+function isUnresolvedEntry(entry) {
+  return entry.kind === 'draft' || isUnresolved(entry.discussion);
 }
 
 module.exports.FilesView = FilesView;

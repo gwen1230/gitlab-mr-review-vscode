@@ -211,6 +211,7 @@
   "unreadable triage ({0}): {1}": "triage illisible ({0}) : {1}",
   "Unrecognized remote: {0}": "Remote non reconnu : {0}",
   "Unviewed only": "Non relus seulement",
+  "Unresolved threads only": "Fils non résolus seulement",
   "Update triage": "Mettre à jour le triage",
   "Update worktree": "Mettre à jour le worktree"
 }

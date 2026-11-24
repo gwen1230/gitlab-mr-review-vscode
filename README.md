@@ -52,15 +52,19 @@ MR Review icon in the activity bar:
 - **💬 Discussions outside code**: the MR general discussions, general drafts, and threads posted on a
   previous version whose line has changed since. As in GitLab, a thread from a previous version stays
   on the code, at its shifted line, as long as later commits haven't touched that line. They open in a
-  document where you reply, resolve, or comment on the MR (last line).
+  document where you reply, resolve, or comment on the MR (last line). Under a thread from a previous
+  version, the commented code as it was in that version, with a few lines of context and the
+  commented lines highlighted.
 - **Files** grouped 🔴 / 🟠 / 🟢 in [triage](#triage) order when there is one, by folder otherwise.
   Each file shows its unresolved threads (💬 n) and a "viewed" checkbox, which is cleared when a commit
   touches the file again.
 - **Each file** shows its added and removed lines (`+12 -3`).
 - **"Filters" block** above the files: path search, filtered as you type (several space-separated
-  terms, all required; Escape clears the field), "Unviewed only" checkbox, and the number of files
-  shown. Groups expand to show every match; next / previous file navigation follows the filter. The ✕
-  button in the files title clears both.
+  terms, all required; Escape clears the field), "Unviewed only" and "Unresolved threads only"
+  checkboxes (files with an unresolved thread on their code; discussions outside code keep only
+  unresolved threads and drafts), and the number of files shown. Groups expand to show every match;
+  next / previous file navigation follows the filter. The ✕ button in the files title clears every
+  filter.
 - **🔄 Changed since my review**: a viewed file touched again by a commit is unchecked and moves to this
   group. A click opens the diff between the reviewed version and the current one; the row buttons
   offer the full MR diff as well. Checking it again records the new version as reviewed.
