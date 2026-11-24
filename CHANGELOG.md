@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/gwen1230/gitlab-mr-review-vscode/compare/v1.0.1...v1.1.0) (2026-11-24)
+
+
+### Features
+
+* **discussions:** code commenté sous les fils d'une version précédente, filtre des fils non résolus ([#17](https://github.com/gwen1230/gitlab-mr-review-vscode/issues/17)) ([09a9623](https://github.com/gwen1230/gitlab-mr-review-vscode/commit/09a96239763d256454e770db54f00cc140d15f5a)), closes [#16](https://github.com/gwen1230/gitlab-mr-review-vscode/issues/16)
+
 ## [1.0.1](https://github.com/gwen1230/gitlab-mr-review-vscode/compare/v1.0.0...v1.0.1) (2026-11-18)
 
 
