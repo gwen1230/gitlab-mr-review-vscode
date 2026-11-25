@@ -688,6 +688,35 @@ async function provideDiscussionsDocument(uri) {
   return (await getDiscussionsLayout(session)).text;
 }
 
+/** Schémas des documents qu'ouvre la relecture d'une MR. */
+const REVIEW_SCHEMES = new Set(['file', 'git', EMPTY_SCHEME, REVIEWED_SCHEME, DISCUSSIONS_SCHEME]);
+
+/**
+ * Document relu au premier plan. Tant que le focus est dans la saisie d'un commentaire,
+ * `activeTextEditor` ne désigne plus le fichier du diff (éditeur de la saisie, ou aucun) : on se
+ * rabat alors sur l'onglet actif, côté branche pour un diff.
+ * @returns {{ uri?: vscode.Uri, editor?: vscode.TextEditor }}
+ */
+function getActiveReviewEditor() {
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor && REVIEW_SCHEMES.has(activeEditor.document.uri.scheme)) {
+    return { uri: activeEditor.document.uri, editor: activeEditor };
+  }
+  const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  const uri =
+    input instanceof vscode.TabInputTextDiff
+      ? input.modified
+      : input instanceof vscode.TabInputText
+        ? input.uri
+        : activeEditor?.document.uri;
+  const editor = uri
+    ? vscode.window.visibleTextEditors.find(
+        (candidate) => candidate.document.uri.toString() === uri.toString()
+      )
+    : undefined;
+  return { uri, editor };
+}
+
 /**
  * Fichier suivant ou précédent dans l'ordre de la vue, en cochant celui qu'on quitte vers l'avant
  * (réglage `mrReview.markViewedOnNext`).
@@ -695,7 +724,7 @@ async function provideDiscussionsDocument(uri) {
  * @param {1 | -1} step
  */
 async function goToAdjacentFile(context, step) {
-  const activeUri = vscode.window.activeTextEditor?.document.uri;
+  const activeUri = getActiveReviewEditor().uri;
   const target = activeUri ? findCommentTarget(activeUri) : undefined;
   // Version relue (diff depuis la relecture) ou document vide (fichier ajouté ou supprimé) : le repo
   // et le chemin sont dans l'URI.
@@ -2086,8 +2115,8 @@ async function filterFiles() {
  * @param {1 | -1} step
  */
 async function goToAdjacentThread(context, step) {
-  const editor = vscode.window.activeTextEditor;
-  const target = editor ? findCommentTarget(editor.document.uri) : undefined;
+  const { uri: activeUri, editor } = getActiveReviewEditor();
+  const target = activeUri ? findCommentTarget(activeUri) : undefined;
   const session = target?.session ?? [...sessions.values()][0];
   if (!session) {
     throw new Error(t('no MR loaded: open the MR Review view or a triage link.'));
